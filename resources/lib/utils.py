@@ -46,6 +46,7 @@ def ensure_data_path():
     if not xbmcvfs.exists(DATA_PATH):
         xbmcvfs.mkdir(DATA_PATH)
 
+
 def list_json_lists(out="", ext=".json"):
     ensure_data_path()
     files = next(os.walk(DATA_PATH), (None, None, []))[2]
@@ -152,13 +153,9 @@ def restore():
 
 
 def clean_str(s):
-    return re.sub(r'[^A-Za-z0-9]', '', s)
+    return re.sub(r'[^A-Za-z0-9\-_]', '', s)
 
 def npath(path):
     if not path:
         return ""
     return os.path.normpath(path).replace("\\", "/").lower()
-
-def ensure_data_path():
-    if not xbmcvfs.exists(DATA_PATH):
-        xbmcvfs.mkdir(DATA_PATH)
