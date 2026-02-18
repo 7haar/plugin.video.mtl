@@ -38,18 +38,6 @@ d = xbmcgui.Dialog()
 ADDON_PATH = xbmcvfs.translatePath(ADDON.getAddonInfo('path'))
 IMG_DIR = os.path.join(ADDON_PATH, 'resources', 'images')
 
-'''
-def selectlist(label, list_items, details=False):
-    while True:
-        what = d.select(label, list_items, useDetails=details)
-        if what == -1:
-            return None
-    return selected
-
-
-def get_url(**kwargs):
-    return '{}?{}'.format(URL, urllib.parse.urlencode(kwargs))
-'''
 
 def safe_list(items,list):
     items_list = []
@@ -100,10 +88,10 @@ def create_result_items(j):
 def create_item(query,channel=None):
     item = {}
     while not item:
-        result = mvw_txt(query)
+        result = mvw_txt(query,channel)
         result_items = create_result_items(result)
         #d.ok('debug',str(result))
-        #d.ok('debug',str(result_items))
+        #d.textviewer('debug',str(result_items))
         titles = [f"{i.get('title','')} | {i.get('topic','')} | {i.get('channel','')}" for i in result_items if i.get('channel') == channel or channel is None]
         sel = d.select('Sendung wählen',titles)
         if sel == -1:
@@ -116,6 +104,7 @@ def create_item(query,channel=None):
             else:
                 item['title'] = (result_items[sel].get('topic'))
             item['topic'] = (result_items[sel].get('topic'))
+            #d.ok('debug create_item',str(item['topic']))
             break
     return item
 
@@ -147,6 +136,7 @@ def search(s=None):
     xbmc.executebuiltin('ActivateWindow(busydialognocancel)')
     list_videos_switch(name)
     xbmc.executebuiltin('Dialog.Close(busydialognocancel)')
+    
 
 def payload_s(data, size=50, dur=600):
     #u.log_info(str(data))
@@ -170,7 +160,6 @@ def payload_s(data, size=50, dur=600):
     }
     #d.ok('debug payload_s',str(payload))    
     return payload
-
 
 
 def mvw(payload):
@@ -271,8 +260,8 @@ def mvw_list(name):
     return videos_sort, static
 
     
-def mvw_txt(txt,tt=""):
-    data = [{"title": txt}]
+def mvw_txt(txt,channel=None):
+    data = [{"title": txt,"channel": channel}]
     j = mvw(payload_s(data))
     return j
 
@@ -302,54 +291,67 @@ def get_player_times():
 
 
 def playvideo(liste=None, stitle=None):
+    exist = True
     player=xbmc.Player()
     if player.isPlaying():
         player.stop()
     list_res = u.load_list_res(liste)
     video = list_res.get(stitle, {})
-    list_item = xbmcgui.ListItem(label=video.get('title'))
-    list_item.setArt({'icon': video.get('thumb'),'landscape': video.get('landscape'),'fanart': video.get('fanart')})
-    info_tag = list_item.getVideoInfoTag()
-    info_tag.setMediaType('video')
-    info_tag.setTitle(video.get('title'))
-    info_tag.setPlot(video.get('plot'))
-    info_tag.setDuration(int(video.get('duration', 0)))
-    ### Resume kommt von Kodi ###
-    #info_tag.setResumePoint(video.get('resume', 0), int(video.get('duration', 0)))
-    #info_tag.setPlaycount(video.get('playcount', 0))
-    info_tag.setGenres([video.get('genre')])
-    info_tag.setPlotOutline(video.get('plot_outline'))
-    info_tag.setFirstAired(video.get('first_aired'))
-    list_item.setProperty('IsPlayable', 'true')
-    path = video.get('video_url')
-    alt = video.get('video_url_alt')
-    if not check_url(path):
-        path = alt
-    list_item.setPath(path)
-    
-    xbmcplugin.setResolvedUrl(HANDLE, True, listitem=list_item)   
-    
-    #### RESUME POINT #####
-    player = xbmc.Player()
-    # warten bis player start
-    while not player.isPlaying():
-        xbmc.sleep(100)
-    interval = 30
-    while player.isPlaying():
-        waitTime = time.time() + interval
-        while player.isPlaying() and time.time() < waitTime: # Pause gilt als isPlaying
-            list_res[stitle]['resume'] = round(player.getTime())
-            xbmc.sleep(500)
-            #d.notification("wiedergabe", f"time:{time.time()}|waitTime:{waitTime}|Interval:{interval}s", xbmcgui.NOTIFICATION_INFO, 100)
-    if not player.isPlaying():
-        player.stop()
-        #d.textviewer('stop',str(list_res))
-        if float(list_res[stitle]['resume']) > 0.9 * list_res[stitle]['duration']:
-            list_res[stitle]['playcount'] = 1
-            list_res[stitle]['resume'] = 0
-        u.save_list(list_res,liste,'res')
-        #d.notification("Stop", f"save resume", xbmcgui.NOTIFICATION_INFO, 2000)
-    
+    exist = bool(video)
+    if not exist:
+        d.notification('MTL','Eintrag in keiner Liste...Suche gestartet')
+        title = stitle[:-10]
+        epath = f"plugin://{ADDON_ID}/?action=search&s={title}"
+        full = f'ActivateWindow(10025,"{epath}",return)'
+        if xbmc.getCondVisibility('Window.IsActive(10000)'):
+            xbmc.executebuiltin('ActivateWindow(Home)')
+        xbmc.executebuiltin('Dialog.Close(all, true)')
+        xbmc.executebuiltin('Container.Close')
+        xbmc.executebuiltin(full)
+    else:
+        list_item = xbmcgui.ListItem(label=video.get('title'))
+        list_item.setArt({'icon': video.get('thumb'),'landscape': video.get('landscape'),'fanart': video.get('fanart')})
+        info_tag = list_item.getVideoInfoTag()
+        info_tag.setMediaType('video')
+        info_tag.setTitle(video.get('title'))
+        info_tag.setPlot(video.get('plot'))
+        info_tag.setDuration(int(video.get('duration', 0)))
+        ### Resume kommt von Kodi ###
+        #info_tag.setResumePoint(video.get('resume', 0), int(video.get('duration', 0)))
+        #info_tag.setPlaycount(video.get('playcount', 0))
+        info_tag.setGenres([video.get('genre')])
+        info_tag.setPlotOutline(video.get('plot_outline'))
+        info_tag.setFirstAired(video.get('first_aired'))
+        list_item.setProperty('IsPlayable', 'true')
+        path = video.get('video_url')
+        alt = video.get('video_url_alt')
+        if not check_url(path):
+            path = alt
+        list_item.setPath(path)
+        
+        xbmcplugin.setResolvedUrl(HANDLE, True, listitem=list_item)   
+        
+        #### RESUME POINT #####
+        player = xbmc.Player()
+        # warten bis player start
+        while not player.isPlaying():
+            xbmc.sleep(100)
+        interval = 30
+        while player.isPlaying():
+            waitTime = time.time() + interval
+            while player.isPlaying() and time.time() < waitTime: # Pause gilt als isPlaying
+                list_res[stitle]['resume'] = round(player.getTime())
+                xbmc.sleep(500)
+                #d.notification("wiedergabe", f"time:{time.time()}|waitTime:{waitTime}|Interval:{interval}s", xbmcgui.NOTIFICATION_INFO, 100)
+        if not player.isPlaying():
+            player.stop()
+            #d.textviewer('stop',str(list_res))
+            if float(list_res[stitle]['resume']) > 0.9 * list_res[stitle]['duration']:
+                list_res[stitle]['playcount'] = 1
+                list_res[stitle]['resume'] = 0
+            u.save_list(list_res,liste,'res')
+            #d.notification("Stop", f"save resume", xbmcgui.NOTIFICATION_INFO, 2000)
+        
 def playvideo2(path,alt):
     play_item = xbmcgui.ListItem()
     if not check_url(path):
@@ -567,7 +569,7 @@ def listing():
     xbmcplugin.addSortMethod(HANDLE, xbmcplugin.SORT_METHOD_TITLE_IGNORE_THE)
     xbmcplugin.endOfDirectory(HANDLE, cacheToDisc=False)
 
-#DYNAMIC
+#DYNAMIC+STATIC
 def create_li(video, list_res, liste, static):
     try:
         ts = video.get('timestamp','')
@@ -607,7 +609,8 @@ def create_li(video, list_res, liste, static):
         info_tag.setDuration(int(video.get('duration', 0)))
         #info_tag.setResumePoint(float("120"), int(video.get('duration', 0))) # xxx funktioniert, spielt aber noch nicht bei 1 min ab
         info_tag.setResumePoint(resume, int(video.get('duration', 0)))
-        info_tag.setPlaycount(playcount)
+        if info_tag.getPlayCount() < playcount:
+            info_tag.setPlaycount(playcount)
         info_tag.setGenres([video.get('channel', '')])
         info_tag.setPlotOutline(video.get('channel', ''))
         info_tag.setFirstAired(u.datum(video.get('timestamp')))
@@ -815,13 +818,16 @@ def newlist(json=None):
                 for i,key in enumerate(list_keys):
                     s = f"{key}: {list_values[i]}"
                     edit_menu.append(s)            
+                edit_menu.append('[COLOR red]... löschen[/COLOR]')
                 edit_sel = d.select(menu[what],edit_menu)
+                edit_lng = len(edit_menu)
                 if edit_sel == -1:
                     break
+                #Title
                 if edit_sel == 1:                    
-                    ync = d.yesnocustom(menu[what],f"Testen / Umbenennen - {menu[what]}\nFolgen pro Sendung: {fps} - Minimallänge: {dur} min", "Testen", "Löschen", "Umbenennen",0,xbmcgui.DLG_YESNO_YES_BTN ) #201
+                    ync = d.yesno(menu[what],f"Testen / Umbenennen - {menu[what]}\nFolgen pro Sendung: {fps} - Minimallänge: {dur} min", nolabel="Umbennen", yeslabel="Testen")
                     # Testen
-                    if ync == 2:
+                    if ync:
                         test_titles = ""
                         result = mvw(payload_s([items['items'][what-lng]],fps,dur*60))
                         for i in result['result']['results']:
@@ -829,19 +835,22 @@ def newlist(json=None):
                         # bearbeiten xxx
                         d.textviewer(f"Ergebnisse für {menu[what]}",test_titles)
                     # Umbennen
-                    if ync == 1:
+                    else:
                         new = d.input('Name der Sendung',items['items'][what-lng]['title'])
                         if new:
+                            #d.textviewer('debug newlist send',str(items['items'][what-lng]['channel']))
                             send = create_item(new,items['items'][what-lng]['channel'])
-                            #d.ok('debug newlist send',str(send))
+                            #d.textviewer('debug newlist send',str(send))
                             if send:
                                 items['items'][what-lng]['title'] = new
                                 items['items'][what-lng]['topic'] = send['topic']
                                 menu[what] = f"{new}"
-                    if ync == 0:
+                #Löschen
+                if edit_sel == edit_lng-1:
                        del items['items'][what-lng]
                        del menu[what]
                        break
+                #Images
                 if edit_sel > 2:
                     if items['items'][what-lng]['channel'] == "ARTE.DE":
                         img_list = arte_img_search(items['items'][what-lng]['title'])
@@ -850,7 +859,7 @@ def newlist(json=None):
                     else:
                         img_list = ard_img_search(items['items'][what-lng]['topic'])
                     items['items'][what-lng][list_keys[edit_sel]] = image_select_dialog(img_list[list_keys[edit_sel]],list_keys[edit_sel])
-                    
+                
                     
                     
 def remove_list(list):
@@ -881,14 +890,10 @@ def router(paramstring):
         remove_list(json)
     elif action == "play":
         playvideo(json,stitle)
-    elif action == "play2":
-        playvideo(file_path,file_path_alt)
     elif action == "show":
         list_videos_switch(json)
     elif action == "playlist":
         playlist(json)
-    elif action == "search_input":
-        search_input()  
     elif action == "search":
         search(s)
     else:

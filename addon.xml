@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.mtl" name="MTL" version="1.2.2" provider-name="oho">
+<addon id="plugin.video.mtl" name="MTL" version="1.2.5" provider-name="oho">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.requests" version="2.12.4"/>
@@ -21,6 +21,12 @@
              ----------------------------------
              - v1.2.0: add resume points
              - v1.2.1: Listing content tvshow
+             - v1.2.2: Python Version 3.0.1
+             - v1.2.5:  -Edit verbessert
+                        -beim Ändern des Titels korrekte Übernahme des Senders
+                        -Wiedergabe von MTL Sucheinträgen aus Favouriten / MyWatchlist, 
+                         die nicht in Results vorhanden sind werden in die Suche umgeleitet.
+                        -Code Cleanup
         </description>
         <disclaimer lang="de_de"></disclaimer>
         <platform>all</platform>
